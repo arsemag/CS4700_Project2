@@ -1,0 +1,246 @@
+#!/usr/bin/env python3
+import os
+import socket
+import argparse
+import tempfile
+
+
+# sends the command to the server with the proper syntax for ftp
+def send_command(sock, command):
+    command = command + "\r\n"
+    sock.sendall(command.encode())
+    response = sock.recv(1024).decode()
+
+    return response
+
+
+# connects to the ftp server on port 21
+def connect_to_ftp(port=21):
+    username = "gebreyesus.a"
+    password = "a1dafa328c068c9125c1ef321d4824d25ca07484fce69d7c53ad86a8d3147ba2"
+    # Regular socket connection with TCP
+    socks = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    socks.connect(("ftp.4700.network", port))
+
+    response = socks.recv(1024).decode()
+    print("Initial response:", response)
+
+    if not response.startswith('220'):
+        raise Exception("FTP not working")
+
+    response_user = send_command(socks, f"USER {username}\r\n")
+    print("USER response:", response_user)
+    response_pass = send_command(socks, f"PASS {password}\r\n")
+    print("PASS response:", response_pass)
+
+    return socks
+
+
+# ensure file type for transfer
+def type_command(socks):
+    response = send_command(socks, "TYPE I")
+    if "200" not in response:
+        raise Exception("FTP not working")
+
+    return response
+
+def mode_command(socks):
+     response = send_command(socks, "MODE S")
+     if "200" not in response and "215" not in response:
+         raise Exception("Type error")
+
+     return response
+
+def stru_command(socket):
+    response = send_command(socket, "STRU F")
+    if "200" not in response:
+        raise Exception("Type error")
+    else:
+        return response
+
+## will open the data channel
+def pasv_command(socks):
+    type_response = type_command(socks)
+    mode_response = mode_command(socks)
+    stru_response = stru_command(socks)
+    response = send_command(socks, "PASV")
+    if "227" not in response:
+        raise Exception("PASV did not work")
+
+    start_info = response.find("(") + 1
+    end_info = response.find(")")
+    number = response[start_info:end_info].split(",")
+    ip = ".".join(number[0:4])
+    print("data channel ip:" + ip)
+    port = (int(number[4]) * 256) + int(number[5])
+
+    data_socket = socket.socket(socket.AF_INET, socket.SOL_SOCKET)
+
+    data_socket.connect((ip, port))
+
+    return data_socket
+
+
+def list_command(socks):
+    ## open data channel
+    data_socket = pasv_command(socks)
+    response = send_command(socks, "LIST")
+   ## listen then execute and CLOSE DATA
+    if "150" not in response:
+        raise Exception("List did not work")
+
+    directory = []
+    while chunk := data_socket.recv(1024).decode():
+        directory.append(chunk)
+
+    data_socket.close()
+
+    return directory
+
+
+# removes a file from the server
+def dele_command(socks, filename):
+
+    response = send_command(socks, f"DELE {filename}")
+    if "250" not in response:
+        raise Exception("Delete did not work")
+
+    print("deleted file:" + filename)
+
+
+def mkd_command(socks, dir_name):
+    response = send_command(socks, f"MKD {dir_name}")
+    if "250" not in response:
+        raise Exception("MKD did not work")
+    else:
+        return print(response)
+
+
+def rmd_command(socks, dir_name):
+     response = send_command(socks, f"RMD {dir_name}")
+     if "250" not in response:
+         raise Exception("RMD did not work")
+     else:
+         return print(response)
+
+
+def stor_command(socks, file_path):
+    data_socket = pasv_command(socks)
+    response = send_command(socks, f"STOR {file_path}")
+    if "250" not in response:
+        raise Exception("STOR did not work")
+
+    with open(file_path, "rb") as f:
+        while chunk := f.read(1024):
+            data_socket.send(chunk)
+
+    data_socket.close()
+
+    response = socks.recv(1024).decode()
+    if "226" not in response:
+        raise Exception("STOR transfer incomplete: " + response)
+
+    print("STOR transfer complete")
+
+
+def retr_command(socks, file_name, file_download_to):
+    current_directory = list_command(socks)
+    data_socket = pasv_command(socks)
+
+    for line in current_directory:
+        if file_name in line:
+            file_path = line.split()[-1]  # Fix typo here: line.spilt() -> line.split()
+            break
+
+    response = send_command(socks, f"RETR {file_path}")
+    if "250" not in response:
+        raise Exception("RETR did not work")
+
+    with open(file_download_to, 'wb') as local_file:
+        while chunk := data_socket.recv(1024):  # Receive file chunks from the data socket
+            local_file.write(chunk)
+
+        data_socket.close()
+
+    response = socks.recv(1024).decode()
+    if "226" not in response:
+        raise Exception(f"File transfer failed. Response: {response}")
+
+    print(f"File {file_name} downloaded successfully")
+
+
+def quit_command(socks):
+     response = send_command(socks, "QUIT")
+     if "221" not in response:
+         raise Exception("QUIT did not work")
+     else:
+         print("Connection closed successfully.")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("operation", choices=["ls", "mkdir", "rm", "rmdir", "cp", "mv"],
+                        help="FTP operation to perform")
+    parser.add_argument('arguments', nargs="+")
+
+    args = parser.parse_args()
+    sock = connect_to_ftp()
+
+    print("I logged in")
+    if args.operation == "ls":
+        list_command(sock)
+    elif args.operation == "mkdir":
+        if args.arguments:
+            directory = args.arguments[0]
+            mkd_command(sock, directory)
+        else:
+            print("Provide name for directory")
+    elif args.operation == "rm":
+        if args.arguments:
+            file = args.arguments[0]
+            dele_command(sock, file)
+        else:
+            print("Provide name for file")
+    elif args.operation == "rmdir":
+        if args.arguments:
+            directory = args.arguments[0]
+            rmd_command(sock, directory)
+        else:
+            print("Provide name for directory")
+    elif args.operation == "cp":
+        if args.arguments:
+            file = args.arguments[0]
+            retr_command(sock, file, file_download_to="temp_file")
+        else:
+            print("Provide name for file")
+    elif args.operation == "mv":
+        if len(args.arguments) == 2:
+            source = args.arguments[0]
+            destination = args.arguments[1]
+
+            # Generate a unique temporary file to store the downloaded file
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                file_download_to = temp_file.name  # Get the temp file name
+                print(f"Temporary file created: {file_download_to}")
+
+            # First, download the file from the source location (RETR)
+            print(f"Retrieving file from source: {source}")
+            retr_command(sock, source, file_download_to)
+
+            # Now, upload the file to the destination location (STOR)
+            print(f"Uploading file to destination: {destination}")
+            stor_command(sock, file_download_to)
+
+            # Finally, delete the original source file (DELE)
+            print(f"Deleting the source file: {source}")
+            dele_command(sock, source)
+
+            # Clean up: remove the temporary file after the operation
+            os.remove(file_download_to)
+
+    sock.close()
+
+
+if __name__ == '__main__':
+    main()
