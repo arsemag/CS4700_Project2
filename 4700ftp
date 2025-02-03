@@ -60,21 +60,28 @@ def stru_command(socks):
 
 
 def pasv_command(socks):
+    print("strtaing pasv command")
+    response = send_command(socks, "PASV")
+    print("PASV response:" +  response)
+
     type_response = type_command(socks)
     mode_response = mode_command(socks)
     stru_response = stru_command(socks)
-    response = send_command(socks, "PASV")
-    print(response)
 
+    # if "226" not in response or "227" not in response:
+    #     raise Exception("PASV error")
 
     start_info = response.find("(") + 1
     end_info = response.find(")")
     number = response[start_info:end_info].split(",")
+    print(number)
     ip = ".".join(number[0:4])
     print("data channel ip:" + ip)
     port = (int(number[4]) * 256) + int(number[5])
     data_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     data_socket.connect((ip, port))
+
+
     return data_socket
 
 
@@ -91,15 +98,20 @@ def list_command(socks):
 
     data_socket.close()
 
+    if data_socket.fileno() == -1:
+        print("Data socket is successfully closed.")
+    else:
+        print("Data socket is still open.")
+
     print(response_2)
-    return directory
+
+    return directory, response
 
 
 # removes a file from the server
 def dele_command(socks, filename):
     response = send_command(socks, f"DELE {filename}")
-    if "250" not in response:
-        raise Exception("Delete did not work")
+
 
     print("deleted file:" + filename)
 
@@ -114,17 +126,37 @@ def rmd_command(socks, dir_name):
     return response
 
 
-def stor_command(socks, file_path):
-    print(f"Beginning to store function with this file: {file_path}")
+def stor_command(socks, file_name):
     data_socket = pasv_command(socks)
+    print(f"Beginning to store function with this file: {file_name}")
 
-    response = send_command(socks, f"STOR {file_path}")
-    print(f"trying to open file and this is file: {file_path}")
+
+    response = send_command(socks, f"STOR {file_name}")
+
+    if not os.path.exists(file_name):
+        print(f"Error: {file_name} does not exist.")
+        return  # Return early if the file is not found
+
+    with open(file_name, "rb") as f:
+        while "\r\n" in f:
+            chunk = f.read(1024)
+            if not chunk:  # Check if chunk is empty (end of file)
+                break  # Exit loop when file is completely read
+            data_socket.sendall(chunk)  # Send chunk over the data socket
+    data_socket.close()
 
     response = socks.recv(1024).decode()
-    print("STOR transfer complete")
 
-    data_socket.close()
+    if "226" in response:
+        print("STOR transfer complete")
+    else:
+        print(f"Error during transfer: {response}")
+
+
+    if data_socket.fileno() == -1:
+        print("Data socket is successfully closed.")
+    else:
+        print("Data socket is still open.")
 
 
 
@@ -134,22 +166,19 @@ def retr_command(socks, file_source, file_dest):
     file_name_source = os.path.basename(file_source)
 
     file_name_dest = os.path.basename(file_dest)
-    print(f"file download from: {file_name_source}")
-    print(f"file getting to {file_name_dest}")
-    print("Checking if file exists before copying...")
 
-    directory = list_command(socks)  # Retrieve directory listing
 
-    if file_name_dest not in ''.join(directory):
-        print(f"Error: File '{file_name_dest}' not found in directory going to store.")
-        stor_command(socks, os.path.basename(file_dest))
+     # Establish data connection for RETR
+    print("director name of 2" + os.path.dirname(file_dest))
+    print("director name of 1" + os.path.dirname(file_source))
+
+
+    stor_command(socks, os.path.basename(file_dest))
 
 
     print("Copying this file:", file_name_source)
 
-
-    data_socket = pasv_command(socks)  # Establish data connection for RETR
-
+    data_socket = pasv_command(socks)
     response = send_command(socks, f"RETR {file_name_dest}")
 
     # downloading the file
@@ -230,24 +259,24 @@ def main():
             print("Provide name for file")
     elif args.operation == "mv":
         if len(args.arguments) == 2:
-            source = args.arguments[0]
-            destination = args.arguments[1]
+            file_source = args.arguments[0]
+            file_dest = args.arguments[1]
 
             # Generate a unique file to store the downloaded file
-            file_download_to = "tempfile_for_move"
+            file_download_to = os.path.basename(file_dest)
             print(f"Temporary file created: {file_download_to}")
 
             # First, download the file from the source location (RETR)
-            print(f"Retrieving file from source: {source}")
-            retr_command(sock, source, file_download_to)
+            print(f"Retrieving file from source: {file_source}")
+            retr_command(sock, file_source, file_download_to)
 
-            # Now, upload the file to the destination location (STOR)
-            print(f"Uploading file to destination: {destination}")
-            stor_command(sock, file_download_to)
+            # # Now, upload the file to the destination location (STOR)
+            # print(f"Uploading file to destination: {file_dest}")
+            # stor_command(sock, file_download_to)
 
             # Finally, delete the original source file (DELE)
-            print(f"Deleting the source file: {source}")
-            dele_command(sock, source)
+            print(f"Deleting the source file: {file_source}")
+            dele_command(sock, file_source)
 
             # Clean up: remove the temporary file after the operation
             os.remove(file_download_to)
