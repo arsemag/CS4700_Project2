@@ -16,9 +16,8 @@ def send_command(sock, command):
 
 
 # connects to the ftp server on port 21
-def connect_to_ftp(port=21):
-    username = "gebreyesus.a"
-    password = "a1dafa328c068c9125c1ef321d4824d25ca07484fce69d7c53ad86a8d3147ba2"
+def connect_to_ftp(user, pwd, port=21):
+
     # Regular socket connection with TCP
     socks = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -30,9 +29,9 @@ def connect_to_ftp(port=21):
     if not response.startswith('220'):
         raise Exception("FTP not working")
 
-    response_user = send_command(socks, f"USER {username}\r\n")
+    response_user = send_command(socks, f"USER {user}\r\n")
     print("USER response:", response_user)
-    response_pass = send_command(socks, f"PASS {password}\r\n")
+    response_pass = send_command(socks, f"PASS {pwd}\r\n")
     print("PASS response:", response_pass)
 
     return socks
@@ -46,17 +45,14 @@ def type_command(socks):
 
 def mode_command(socks):
     response = send_command(socks, "MODE S")
-    if "200" not in response and "215" not in response:
-        raise Exception("Type error")
+
     return response
 
 
 def stru_command(socks):
     response = send_command(socks, "STRU F")
-    if "200" not in response:
-        raise Exception("Type error")
-    else:
-        return response
+
+    return response
 
 
 def pasv_command(socks):
@@ -68,8 +64,6 @@ def pasv_command(socks):
     mode_response = mode_command(socks)
     stru_response = stru_command(socks)
 
-    # if "226" not in response or "227" not in response:
-    #     raise Exception("PASV error")
 
     start_info = response.find("(") + 1
     end_info = response.find(")")
@@ -138,11 +132,8 @@ def stor_command(socks, file_name):
         return  # Return early if the file is not found
 
     with open(file_name, "rb") as f:
-        while "\r\n" in f:
-            chunk = f.read(1024)
-            if not chunk:  # Check if chunk is empty (end of file)
-                break  # Exit loop when file is completely read
-            data_socket.sendall(chunk)  # Send chunk over the data socket
+        while chunk := f.read(1024):
+            data_socket.send(chunk)
     data_socket.close()
 
     response = socks.recv(1024).decode()
@@ -215,17 +206,22 @@ def quit_command(socks):
 
 def main():
     parser = argparse.ArgumentParser()
+
     parser.add_argument("operation", choices=["ls", "mkdir", "rm", "rmdir", "cp", "mv"],
                         help="FTP operation to perform")
 
     parser.add_argument('arguments', nargs="+")
 
     args = parser.parse_args()
-    sock = connect_to_ftp()
+
 
     parser_url = urlparse(args.arguments[0])
+    username = parser_url.username
+    print(f"Username: {username}")
+    password = parser_url.password
+    print(f"Password: {password}")
     print("URL is: " + parser_url.netloc + parser_url.path)
-
+    sock = connect_to_ftp(username, password)
     path = parser_url.path
     name = path.split('/')[-1]
 
@@ -250,17 +246,22 @@ def main():
     elif args.operation == "cp":
         if args.arguments:
             file_source = args.arguments[0]
-            print("File source:", file_source)
             file_dest = args.arguments[1]
-            print("File dest:", file_dest)
-
-            retr_command(sock, file_source, file_dest)
-        else:
-            print("Provide name for file")
+            if args.arguments[1].startswith("ftp"):
+                parser_url = urlparse(args.arguments[1])
+                username = parser_url.username
+                password = parser_url.password
+                sock = connect_to_ftp(username, password)
+                print("File source:", file_source)
+                print("File dest:", file_dest)
+                retr_command(sock, file_source, file_dest)
+            else:
+                retr_command(sock, file_source, file_dest)
     elif args.operation == "mv":
         if len(args.arguments) == 2:
             file_source = args.arguments[0]
             file_dest = args.arguments[1]
+
 
             # Generate a unique file to store the downloaded file
             file_download_to = os.path.basename(file_dest)
