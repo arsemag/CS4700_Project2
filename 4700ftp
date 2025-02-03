@@ -167,7 +167,9 @@ def retr_command(socks, file_machine, file_to_download_on_server, data_socket):
 
 
     # downloading the file
+    print("attempting to find file")
     with open(file_machine, 'wb') as file_download_to:
+        print("file download to:" + file_machine)
         while True:
             chunk = data_socket.recv(1024)
             if not chunk:
