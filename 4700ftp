@@ -230,18 +230,18 @@ def main():
             print("Provide name for directory")
     elif args.operation == "cp":
         if args.arguments:
-            file_my_machine = args.arguments[0]
-            file_to_down = args.arguments[1]
+            file_my_machine = os.path.basename(args.arguments[0])
+            file_to_down = os.path.basename(args.arguments[1])
 
             print("Checking if file exists before copying...")
             directory = list_command(sock, data_socket)  # Retrieve directory listing
             print(directory)
-            if file_to_down not in ''.join(directory):
+            if file_to_down not in ''.join(directory) or file_my_machine not in ''.join(directory):
+                print("File not downloaded in directory  or " + file_to_down + "or" + file_my_machine)
                 stor_command(sock, os.path.basename(file_to_down), data_socket)
                 print(f"Error: File '{file_to_down}' not found in directory.")
                 sock.close()
                 return
-
             print("Copying this file:", file_to_down)
 
 
