@@ -192,7 +192,7 @@ def retr_command(socks, file_source, file_dest):
     print("Copying this file:", file_name_source)
 
     data_socket = pasv_command(socks)
-    response = send_command(socks, f"RETR {file_name_dest}")
+    response = send_command(socks, f"RETR {file_source}")
 
     # downloading the file
     print("attempting to find file")
@@ -268,16 +268,15 @@ def main():
         rmd_command(sock, name)
 
     elif args.operation == "cp":
-        file_source = args.arguments[0]  # has the lpcal
+        file_source = args.arguments[0]  # has the  server
         file_dest = args.arguments[1]
 
-        if file_source.startswith("ftp://"):
+        if file_source.startswith("ftp://"): # has the  server
             # parser_url = urlparse(file_source)
             # file_source = parser_url.path
-            slash_idx = file_source[6:].index("/")
+            slash_idx = file_source[5:].index("/")
             file_source = file_source[slash_idx:]
-            print("LOOOK HERE" + file_source)# has the server
-            print("this is the path")
+            print("this is the path" +  file_source + "from FTP server")
             print("Copying file from using retreve: " + file_source + "to: " + file_dest)
             retr_command(sock, file_source, file_dest)
         else:
