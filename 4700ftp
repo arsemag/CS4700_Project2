@@ -2,7 +2,6 @@
 import os
 import socket
 import argparse
-from tkinter.font import names
 from urllib.parse import urlparse
 
 
