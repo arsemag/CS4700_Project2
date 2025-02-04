@@ -152,6 +152,11 @@ def stor_command(socks, file_sor, file_dest):
 
     response = socks.recv(1024).decode()
 
+    if response.startswith('4') or response.startswith('5') or response.startswith('6'):
+        print(response)
+
+        quit_command(socks)
+
 
 
 
@@ -195,11 +200,10 @@ def retr_command(socks, file_source, file_dest):
     response = socks.recv(1024).decode()
 
 
+    if response.startswith('4') or response.startswith('5') or response.startswith('6'):
+        print(response)
 
-    if "226" not in response:
-        raise Exception(f"File transfer failed. Response: {response}")
-
-    print(f"File {file_name_dest} downloaded successfully")
+        quit_command(socks)
 
 
 def quit_command(socks):
