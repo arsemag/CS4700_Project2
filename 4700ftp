@@ -189,11 +189,6 @@ def retr_command(socks, file_source, file_dest):
      # Establish data connection for RETR
     print("director name of 2" + os.path.dirname(file_dest))
     print("director name of 1" + os.path.dirname(file_source))
-
-
-
-
-
     print("Copying this file:", file_name_source)
 
     data_socket = pasv_command(socks)
@@ -235,7 +230,7 @@ def main():
     print("got to check command")
 
 
-
+    print(args)
     if args.arguments[0].startswith("ftp://"):
         parser_url = urlparse(args.arguments[0])
         username = parser_url.username
@@ -284,7 +279,7 @@ def main():
             retr_command(sock, file_source, file_dest)
         else:
             if file_dest.startswith("ftp://"):
-                parser_url = file_dest(args.arguments[1])
+                parser_url = urlparse(file_dest)
                 file_dest = parser_url.path
                 print("Copying file from using store: " + file_source + "to: " + file_dest)
                 stor_command(sock, file_source, file_dest)
