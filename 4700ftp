@@ -273,7 +273,8 @@ def main():
 
         if file_source.startswith("ftp://"):
             parser_url = urlparse(file_source)
-            file_source = parser_url.path            # has the server
+            file_source = parser_url.path
+            print(file_source)# has the server
             print("this is the path")
             print("Copying file from using retreve: " + file_source + "to: " + file_dest)
             retr_command(sock, file_source, file_dest)
