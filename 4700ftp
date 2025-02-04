@@ -272,8 +272,10 @@ def main():
         file_dest = args.arguments[1]
 
         if file_source.startswith("ftp://"):
-            parser_url = urlparse(file_source)
-            file_source = parser_url.path
+            # parser_url = urlparse(file_source)
+            # file_source = parser_url.path
+            slash_idx = file_source[6:].index("/")
+            file_source = file_source[slash_idx:]
             print("LOOOK HERE" + file_source)# has the server
             print("this is the path")
             print("Copying file from using retreve: " + file_source + "to: " + file_dest)
