@@ -10,6 +10,12 @@ def send_command(sock, command):
     print(f"Sending command: {command}")
     sock.sendall(command.encode() + b"\r\n")
     response = sock.recv(1024).decode()
+
+    if response.startswith('4') or response.startswith('5') or response.startswith('6'):
+        print(response)
+
+        quit_command(sock)
+
     return response
 
 
@@ -35,23 +41,32 @@ def connect_to_ftp(user, pwd, port=21):
     response_pass = send_command(socks, f"PASS {pwd}")
     print("PASS response:", response_pass)
 
+
+
     return socks
 
 
 # ensure file type for transfer
 def type_command(socks):
     response = send_command(socks, "TYPE I")
+
+
+
     return response
 
 
 def mode_command(socks):
     response = send_command(socks, "MODE S")
 
+
+
     return response
 
 
 def stru_command(socks):
     response = send_command(socks, "STRU F")
+
+
 
     return response
 
@@ -80,6 +95,11 @@ def pasv_command(socks):
     data_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     data_socket.connect((ip, port))
 
+    if response.startswith('4') or response.startswith('5') or response.startswith('6'):
+        print(response)
+
+        quit_command(socks)
+
 
     return data_socket
 
@@ -100,14 +120,8 @@ def list_command(socks):
 
     data_socket.close()
 
-    if data_socket.fileno() == -1:
-        print("Data socket is successfully closed.")
-    else:
-        print("Data socket is still open.")
-
     print(response_2)
-
-    return directory, response
+    return directory, response_2
 
 
 # removes a file from the server
@@ -116,18 +130,20 @@ def dele_command(socks, filename):
 
 
     print("deleted file:" + filename)
+    return response
 
 
 def mkd_command(socks, dir_name):
     print(dir_name)
     response = send_command(socks, f"MKD {dir_name}")
-    print(response)
+
     return response
 
 
 def rmd_command(socks, dir_name):
     response = send_command(socks, f"RMD {dir_name}")
-    print(response)
+
+
     return response
 
 
@@ -152,10 +168,7 @@ def stor_command(socks, file_sor, file_dest):
 
     response = socks.recv(1024).decode()
 
-    if response.startswith('4') or response.startswith('5') or response.startswith('6'):
-        print(response)
 
-        quit_command(socks)
 
 
 
@@ -200,10 +213,7 @@ def retr_command(socks, file_source, file_dest):
     response = socks.recv(1024).decode()
 
 
-    if response.startswith('4') or response.startswith('5') or response.startswith('6'):
-        print(response)
 
-        quit_command(socks)
 
 
 def quit_command(socks):
