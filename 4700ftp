@@ -60,13 +60,16 @@ def stru_command(socks):
 
 
 def pasv_command(socks):
+    type_response = type_command(socks)
+    mode_response = mode_command(socks)
+    stru_response = stru_command(socks)
+
+
     print("strtaing pasv command")
     response = send_command(socks, "PASV")
     print("PASV response:" +  response)
 
-    type_response = type_command(socks)
-    mode_response = mode_command(socks)
-    stru_response = stru_command(socks)
+
 
 
     start_info = response.find("(") + 1
@@ -124,19 +127,23 @@ def rmd_command(socks, dir_name):
     return response
 
 
-def stor_command(socks, file_name, data_socket):
-    print(f"Beginning to store function with this file: {file_name}")
+def stor_command(socks, file_sor, file_dest):
+    data_socket = pasv_command(socks)
+    print("Copying file from using store: " + os.path.basename(file_sor) + "to: " + os.path.basename(file_dest))
+    print(f"Beginning to store function with this file this is the source: {os.path.basename(file_sor)}")
+    print(f"Beginning to store function with this file to be the destionation: {os.path.basename(file_dest)}")
 
 
-    response = send_command(socks, f"STOR {file_name}")
+    response = send_command(socks, f"STOR {os.path.basename(file_dest)}")
 
-    if not os.path.exists(file_name):
-        print(f"Error: {file_name} does not exist.")
-        return  # Return early if the file is not found
 
-    with open(file_name, "rb") as f:
+
+
+    print(f"Beginning to store function with this file: {file_dest}")
+    with open(os.path.basename(file_sor), "rb") as f:
         while chunk := f.read(1024):
-            data_socket.send(chunk)
+            data_socket.sendall(chunk)
+
     data_socket.close()
 
     response = socks.recv(1024).decode()
@@ -144,11 +151,8 @@ def stor_command(socks, file_name, data_socket):
 
 
 
+    print(response)
 
-    if data_socket.fileno() == -1:
-        print("Data socket is successfully closed.")
-    else:
-        print("Data socket is still open.")
 
 
 
@@ -171,7 +175,6 @@ def retr_command(socks, file_source, file_dest):
     print("Copying this file:", file_name_source)
 
     data_socket = pasv_command(socks)
-
     response = send_command(socks, f"RETR {file_name_dest}")
 
     # downloading the file
@@ -261,28 +264,32 @@ def main():
         rmd_command(sock, name)
 
     elif args.operation == "cp":
-        file_source = args.arguments[0]
+        file_sorce = args.arguments[0]  # has the lpcal
         file_dest = args.arguments[1]
-        print(f"Copying from {file_source} to {file_dest}")
-        retr_command(sock, file_source, file_dest)
+
+        if args.arguments[0].startswith("ftp://"): # has the server
+            print("Copying file from using retreve: " + file_sorce + "to: " + file_dest)
+            retr_command(sock, file_sorce, file_dest)
+        else:
+            print("Copying file from using store: " + file_sorce + "to: " + file_dest)
+            stor_command(sock, file_sorce, file_dest)
 
     elif args.operation == "mv":
-        file_source = args.arguments[0]
-        file_dest = args.arguments[1]
+        file_source = args.arguments[0] # would have local if not in if not statments
+        file_destination = args.arguments[1]
 
-        # Generate a unique file name for the downloaded file
-        file_download_to = os.path.basename(file_dest)
-        print(f"Downloading file from {file_source} to temporary location {file_download_to}")
+        if args.arguments[0].startswith("ftp://"): ## O has the the server information
+            print(f"Downloading file from the server with this file {file_source} to temporary "
+                  f"location on local path{file_destination}")
 
-        retr_command(sock, file_source, file_download_to)
+            retr_command(sock, file_source, file_destination)
+            print(f"Deleting original file {file_source}")
+            dele_command(sock, file_source)
 
-        print(f"Uploading file to {file_dest}")
-        stor_command(sock, file_dest)
+        else:
+            print("Downloading file from: the local" + file_source + "to: on the server " + file_destination)
+            stor_command(sock, file_source, file_destination)
 
-        print(f"Deleting original file {file_source}")
-        dele_command(sock, file_source)
-
-        os.remove(file_download_to)  # Remove temporary local copy
 
     sock.close()
 
