@@ -154,13 +154,13 @@ def stor_command(socks, file_sor, file_dest):
     print(f"Beginning to store function with this file to be the destionation: {os.path.basename(file_dest)}")
 
 
-    response = send_command(socks, f"STOR {os.path.basename(file_dest)}")
+    response = send_command(socks, f"STOR {file_dest}")
 
 
 
 
     print(f"Beginning to store function with this file: {file_dest}")
-    with open(os.path.basename(file_sor), "rb") as f:
+    with open(file_sor, "rb") as f:
         while chunk := f.read(1024):
             data_socket.sendall(chunk)
 
@@ -181,22 +181,20 @@ def stor_command(socks, file_sor, file_dest):
 def retr_command(socks, file_source, file_dest):
 
     print("using the retr command")
-    file_name_source = os.path.basename(file_source)
 
-    file_name_dest = os.path.basename(file_dest)
 
 
      # Establish data connection for RETR
-    print("director name of 2" + os.path.dirname(file_dest))
-    print("director name of 1" + os.path.dirname(file_source))
-    print("Copying this file:", file_name_source)
+    print("director name of destination " + os.path.basename(file_dest))
+    print("director name of source " + os.path.basename(file_source))
+
 
     data_socket = pasv_command(socks)
     response = send_command(socks, f"RETR {file_source}")
 
     # downloading the file
     print("attempting to find file")
-    with open(file_name_dest, 'wb') as file_download_to:
+    with open(file_dest, 'wb') as file_download_to:
         print(f"file download to: {file_dest}")
         while True:
             chunk = data_socket.recv(1024)
@@ -204,9 +202,11 @@ def retr_command(socks, file_source, file_dest):
                 break
             file_download_to.write(chunk)
 
-    data_socket.close()
-    response = socks.recv(1024).decode()
 
+
+    response = socks.recv(1024).decode()
+    print(response)
+    data_socket.close()
 
 
 
@@ -272,12 +272,11 @@ def main():
         file_dest = args.arguments[1]
 
         if file_source.startswith("ftp://"): # has the  server
-            # parser_url = urlparse(file_source)
-            # file_source = parser_url.path
-            slash_idx = file_source[5:].index("/")
-            file_source = file_source[slash_idx:]
+            parser_url = urlparse(file_source)
+            file_source = parser_url.path
+
             print("this is the path" +  file_source + "from FTP server")
-            print("Copying file from using retreve: " + file_source + "to: " + file_dest)
+            print("Copying file from using retreve: " + file_source + " to: " + file_dest)
             retr_command(sock, file_source, file_dest)
         else:
             if file_dest.startswith("ftp://"):
