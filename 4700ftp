@@ -8,10 +8,8 @@ from urllib.parse import urlparse
 # sends the command to the server with the proper syntax for ftp
 def send_command(sock, command):
     print(f"Sending command: {command}")
-    command = command + "\r\n"
-    sock.sendall(command.encode())
+    sock.sendall(command.encode() + b"\r\n")
     response = sock.recv(1024).decode()
-    print(response)
     return response
 
 
@@ -66,10 +64,11 @@ def pasv_command(socks):
 
     print("strtaing pasv command")
     response = send_command(socks, "PASV")
-    print("PASV response:" +  response)
 
 
 
+    if "227" not in response:
+        print("PASV response did not work")
 
     start_info = response.find("(") + 1
     end_info = response.find(")")
@@ -117,12 +116,15 @@ def dele_command(socks, filename):
 
 
 def mkd_command(socks, dir_name):
+    print(dir_name)
     response = send_command(socks, f"MKD {dir_name}")
+    print(response)
     return response
 
 
 def rmd_command(socks, dir_name):
     response = send_command(socks, f"RMD {dir_name}")
+    print(response)
     return response
 
 
@@ -214,33 +216,23 @@ def main():
     args = parser.parse_args()
 
     print("got to check command")
-    if args.operation in ["ls", "mkdir", "rm", "rmdir"]:
-        if len(args.arguments) < 1:
-            print("Error: Missing argument for operation", args.operation)
-            return
 
-        parser_url = urlparse(args.arguments[0] if "://" in args.arguments[0] else "ftp://" + args.arguments[0])
+
+
+    if args.arguments[0].startswith("ftp://"):
+        parser_url = urlparse(args.arguments[0])
         username = parser_url.username
         password = parser_url.password
-        path = parser_url.path
-        name = path.split('/')[-1]
-
+        name = parser_url.path
         sock = connect_to_ftp(username, password)
 
-    else:
-        print("got to check command for 2 arguments")
-
-        if args.arguments[0].startswith("ftp://"):
-            parser_url = urlparse(args.arguments[0])
-            username = parser_url.username
-            password = parser_url.password
-            sock = connect_to_ftp(username, password)
-        elif args.arguments[1].startswith("ftp://"):
-            parser_url = urlparse(args.arguments[1])
-            username = parser_url.username
-            password = parser_url.password
-            print("got to connect to socket")
-            sock = connect_to_ftp(username, password)
+    elif args.arguments[1].startswith("ftp://"):
+        parser_url = urlparse(args.arguments[1])
+        username = parser_url.username
+        password = parser_url.password
+        name = parser_url.path
+        print("got to connect to socket")
+        sock = connect_to_ftp(username, password)
 
 
     # Handling different operations
@@ -251,6 +243,7 @@ def main():
         list_command(sock)
 
     elif args.operation == "mkdir":
+        print("this is the path", name)
         print("Creating directory:", name)
         mkd_command(sock, name)
 
@@ -263,29 +256,41 @@ def main():
         rmd_command(sock, name)
 
     elif args.operation == "cp":
-        file_sorce = args.arguments[0]  # has the lpcal
+        file_source = args.arguments[0]  # has the lpcal
         file_dest = args.arguments[1]
 
-        if args.arguments[0].startswith("ftp://"): # has the server
-            print("Copying file from using retreve: " + file_sorce + "to: " + file_dest)
-            retr_command(sock, file_sorce, file_dest)
+        if file_source.startswith("ftp://"):
+            parser_url = urlparse(file_source)
+            file_source = parser_url.path            # has the server
+            print("this is the path")
+            print("Copying file from using retreve: " + file_source + "to: " + file_dest)
+            retr_command(sock, file_source, file_dest)
         else:
-            print("Copying file from using store: " + file_sorce + "to: " + file_dest)
-            stor_command(sock, file_sorce, file_dest)
+            if file_dest.startswith("ftp://"):
+                parser_url = file_dest(args.arguments[1])
+                file_dest = parser_url.path
+                print("Copying file from using store: " + file_source + "to: " + file_dest)
+                stor_command(sock, file_source, file_dest)
 
     elif args.operation == "mv":
         file_source = args.arguments[0] # would have local if not in if not statments
         file_destination = args.arguments[1]
 
-        if args.arguments[0].startswith("ftp://"): ## O has the the server information
+        if file_source.startswith("ftp://"):
+            parser_url = urlparse(file_source)
+            file_source = parser_url.path            # has the server
+            print("this is the path")
+            ## O has the the server information
             print(f"Downloading file from the server with this file {file_source} to temporary "
                   f"location on local path{file_destination}")
-
             retr_command(sock, file_source, file_destination)
             print(f"Deleting original file {file_source}")
             dele_command(sock, file_source)
 
         else:
+            if file_destination.startswith("ftp://"):
+                parser_url = file_destination(args.arguments[1])
+                file_dest = parser_url.path
             print("Downloading file from: the local" + file_source + "to: on the server " + file_destination)
             stor_command(sock, file_source, file_destination)
 
