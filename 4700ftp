@@ -90,7 +90,10 @@ def list_command(socks):
 
     # listen then execute and CLOSE DATA
     directory = []
-    while chunk := data_socket.recv(1024).decode():
+    while True:
+        chunk = data_socket.recv(1024).decode()
+        if not chunk:  # Check if the chunk is empty, meaning end of data
+            break
         directory.append(chunk)
 
     response_2 = ''.join(directory)
