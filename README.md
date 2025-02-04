@@ -29,11 +29,17 @@ This function sends the RMD command to remove a directory from the server.
 
 stor_command(socks, file_sor, file_dest): 
 This function uploads a file to the FTP server by sending the STOR command.
-It uses the passive connection to transfer the file in chunks.
+It uses the data channel to transfer the file in chunks. This is when we get a 
+file from our local machine and store it onto the server
 
-retr_command(socks, file_source, file_dest): This function downloads a file from the FTP server using the RETR command. 
-It receives the file data through the passive connection and saves it locally.
+retr_command(socks, file_source, file_dest): This function downloads a file from the FTP server 
+using the RETR command. It receives the file data through the data channel and saves it locally.
 
 quit_command(socks): This function sends the QUIT command to the server to gracefully close the connection.
 
 
+Testing: 
+I uploaded files and created directories on the server to ensure proper storing and retrieving files. 
+Personally the difficulties I encountered were the STOR and RETR commands because my inputs were to poorly labeled so 
+there were times when I was not storing properly therefore, the RETR command would not work. Also for testing I add 
+some print statements to ensure that the outputs and inputs were what I was expecting. 
